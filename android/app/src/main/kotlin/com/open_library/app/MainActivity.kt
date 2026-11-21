@@ -1,9 +1,11 @@
 package com.open_library.app
 
+import android.app.ActivityManager
 import android.content.ContentValues
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.MediaStore
 import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
@@ -92,6 +94,29 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        // Device capabilities for the liquid-glass gate. A one-shot
+        // channel rather than a plugin: the only values needed are
+        // Build.VERSION.SDK_INT, isLowRamDevice and isPowerSaveMode.
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "zlibx/device",
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "glassSupport" -> {
+                    val activityManager =
+                        getSystemService(ActivityManager::class.java)
+                    val powerManager = getSystemService(PowerManager::class.java)
+                    result.success(
+                        mapOf(
+                            "sdkInt" to Build.VERSION.SDK_INT,
+                            "lowRam" to (activityManager?.isLowRamDevice ?: false),
+                            "powerSave" to (powerManager?.isPowerSaveMode ?: false),
+                        ),
+                    )
+                }
+                else -> result.notImplemented()
+            }
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {

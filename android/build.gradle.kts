@@ -20,14 +20,17 @@ allprojects {
     buildscript {
         repositories {
             addCnMirrors()
-            google()
+            // With the China mirrors on, dl.google.com is only a fallback
+            // that hangs from China (empty responses, long retries). The
+            // Aliyun google mirror serves the same artifacts.
+            if (!useCnMirror) google()
             mavenCentral()
         }
     }
     repositories {
         addCnMirrors()
-        // Fallback to original
-        google()
+        // Same fallback rule as buildscript above.
+        if (!useCnMirror) google()
         mavenCentral()
     }
 }

@@ -85,7 +85,7 @@ dependencies:
   # vendor/olib_api_plugin/ (committed to the repo; CI verifies it).
   olib_api_plugin:
     path: vendor/olib_api_plugin
-
+  liquid_glass_widgets: 1.19.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

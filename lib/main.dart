@@ -4,12 +4,16 @@ import 'dart:ui';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+// The package also exports a ProgressiveBlur; this app has its own.
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
+    hide ProgressiveBlur;
 import 'widgets/progressive_blur.dart';
 import 'theme/app_theme.dart';
 import 'providers/auth_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/zlibrary_provider.dart';
 import 'routes/app_routes.dart';
+import 'services/glass_support.dart';
 import 'services/hive_service.dart';
 import 'services/mirror_trust.dart';
 import 'services/booklist_html_cache.dart';
@@ -43,6 +47,14 @@ void main() async {
   // Pre-compile the graduated header blur shader so the first home frame
   // does not fall back to a flat blur. Never throws.
   await ProgressiveBlur.preload();
+
+  // Liquid glass is Android 13+ only (RuntimeShader / RenderEffect), and
+  // off on low-RAM devices — same gate the reference apps use. When it is
+  // off the app keeps the plain Material bar.
+  await GlassSupport.initialize();
+  if (GlassSupport.enabled) {
+    await LiquidGlassWidgets.initialize();
+  }
 
   await HiveService.init();
   // Existing installs keep their current line without a trust prompt.
@@ -79,7 +91,15 @@ void main() async {
     return solved == true ? ChallengeHtmlCache.get(url) : null;
   };
 
-  runApp(const ProviderScope(child: MyApp()));
+  Widget app = const MyApp();
+  if (GlassSupport.enabled) {
+    app = LiquidGlassWidgets.wrap(
+      child: app,
+      adaptiveQuality: true,
+      brightnessResolver: Theme.maybeBrightnessOf,
+    );
+  }
+  runApp(ProviderScope(child: app));
 }
 
 class MyApp extends ConsumerStatefulWidget {
