@@ -304,6 +304,8 @@
   "isbn13": "ISBN 13",
   "language": "Language",
   "languageSetting": "Language",
+  "liquidGlass": "Liquid glass navigation",
+  "liquidGlassDesc": "Shader-based glass bar on Android 13+; off uses the opaque Material bar",
   "later": "Later",
   "light": "Light",
   "like": "Like",

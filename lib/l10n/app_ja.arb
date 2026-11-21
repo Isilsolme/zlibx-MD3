@@ -304,6 +304,8 @@
   "isbn13": "ISBN 13",
   "language": "言語",
   "languageSetting": "言語",
+  "liquidGlass": "リキッドグラスナビゲーション",
+  "liquidGlassDesc": "Android 13+ ではシェーダー製のガラスバーを使用します。オフにすると不透明な Material バーになります",
   "later": "あとで",
   "light": "ライト",
   "like": "お気に入り",

@@ -304,6 +304,8 @@
   "isbn13": "ISBN 13",
   "language": "언어",
   "languageSetting": "언어",
+  "liquidGlass": "리퀴드 글라스 내비게이션",
+  "liquidGlassDesc": "Android 13+에서 셰이더 유리 바를 사용합니다. 끄면 불투명한 Material 바를 사용합니다",
   "later": "나중에",
   "light": "밝게",
   "like": "즐겨찾기",

@@ -304,6 +304,8 @@
   "isbn13": "ISBN 13",
   "language": "語言",
   "languageSetting": "語言",
+  "liquidGlass": "液態玻璃導覽列",
+  "liquidGlassDesc": "Android 13+ 使用著色器玻璃底欄；關閉後使用不透明 Material 底欄",
   "later": "稍後再說",
   "light": "淺色",
   "like": "收藏",

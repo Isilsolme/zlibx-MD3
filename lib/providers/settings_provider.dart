@@ -201,6 +201,25 @@ final navBarVisibleProvider = NotifierProvider<NavBarVisibleNotifier, bool>(
   NavBarVisibleNotifier.new,
 );
 
+/// Whether the liquid-glass bottom bar is used on devices whose glass
+/// gate is open (Android 13+). Off means the opaque Material bar.
+class GlassNavNotifier extends Notifier<bool> {
+  @override
+  bool build() {
+    final stored = HiveService.settingsBox.get('glassNavEnabled');
+    return stored is bool ? stored : true;
+  }
+
+  Future<void> setEnabled(bool value) async {
+    state = value;
+    await HiveService.settingsBox.put('glassNavEnabled', value);
+  }
+}
+
+final glassNavEnabledProvider = NotifierProvider<GlassNavNotifier, bool>(
+  GlassNavNotifier.new,
+);
+
 /// Bottom navigation labels: always / selected-only (auto) / never.
 class NavLabelModeNotifier extends Notifier<NavLabelMode> {
   @override

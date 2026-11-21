@@ -80,7 +80,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           if (ref.read(navBarVisibleProvider) != true) {
             ref.read(navBarVisibleProvider.notifier).setVisible(true);
           }
-          setState(() => _selectedIndex = index);
+          // Swipes update the bar; taps already set the index in
+          // _onDestinationSelected so the bar starts moving immediately
+          // instead of waiting for the page animation to report back.
+          if (_selectedIndex != index) {
+            setState(() => _selectedIndex = index);
+          }
           if (index == 0) {
             _homeTabKey.currentState?.onBecameVisible();
           }
@@ -187,8 +192,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       // Recommended: the home tab, scrolled to the top.
       _homeTabKey.currentState?.scrollToTop();
     }
-    // The selected index follows the page (onPageChanged); tapping the
-    // current tab leaves the page animation a no-op.
+    // Set the bar's selection before the page animation: waiting for
+    // onPageChanged made the bar animate to the tapped tab, snap back to
+    // the old selectedIndex on the next rebuild, then move again.
+    if (_selectedIndex != index) {
+      setState(() => _selectedIndex = index);
+    }
     _pageController.animateToPage(
       index,
       duration: AppMotion.slow,

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../models/nav_label_mode.dart';
 import '../../../providers/settings_provider.dart';
+import '../../../services/glass_support.dart';
 import '../../../theme/app_layout.dart';
 import 'section_header.dart';
 import 'settings_card.dart';
@@ -26,6 +27,7 @@ class NavigationSection extends ConsumerWidget {
     // has no blur, floating mode or hide-on-scroll: showing those switches
     // there would be lying. The label mode still applies.
     final compactNav = !AppLayout.usesNavRail(context);
+    final glassOn = GlassSupport.enabled && ref.watch(glassNavEnabledProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -34,7 +36,24 @@ class NavigationSection extends ConsumerWidget {
         SettingsCard(
           child: Column(
             children: [
-              if (compactNav) ...[
+              // The glass switch only exists on devices whose gate is open;
+              // everywhere else the Material bar is the only option.
+              if (compactNav && GlassSupport.enabled) ...[
+                SwitchListTile(
+                  secondary: const Icon(Icons.blur_circular_rounded),
+                  title: Text(t.liquidGlass),
+                  subtitle: Text(t.liquidGlassDesc),
+                  value: glassOn,
+                  activeThumbColor: cs.primary,
+                  onChanged: (value) {
+                    ref
+                        .read(glassNavEnabledProvider.notifier)
+                        .setEnabled(value);
+                  },
+                ),
+                const SettingsDivider(),
+              ],
+              if (compactNav && !glassOn) ...[
                 SwitchListTile(
                   secondary: const Icon(Icons.blur_on_rounded),
                   title: Text(t.blurEffect),
