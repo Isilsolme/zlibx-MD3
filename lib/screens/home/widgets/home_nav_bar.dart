@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
@@ -50,19 +51,23 @@ class HomeNavBar extends ConsumerWidget {
             ),
         ],
         selectedIndex: selectedIndex,
-        onTabSelected: onDestinationSelected,
+        onTabSelected: (index) {
+          // The package has no haptics; the old Material bar clicked on
+          // every selection and drag settle. Keep parity.
+          HapticFeedback.selectionClick();
+          onDestinationSelected(index);
+        },
         // Premium is the shader path (real Gaussian backdrop sampling);
         // standard is the lightweight approximation that turns blocky on a
         // large blur. The Android 13+ gate is the only downgrade — the
         // package's adaptive quality scope is disabled in main().
         quality: GlassQuality.premium,
         backgroundQuality: GlassQuality.premium,
-        // No magic-lens masking, no magnification and no press glow: those
-        // draw the selected tab twice (the multi-layer icon ghosting) and
-        // add a bright highlight while dragging. NeriPlayer only bends the
-        // backdrop, which is what is left here: a heavy blur plus a subtle
-        // curved-lens rim, without chromatic fringes.
-        maskingQuality: MaskingQuality.off,
+        // Masking must stay high: the package's "simple" (off) mode draws
+        // the whole selected-tab row squeezed into one tab slot, which is
+        // the pile of overlapping icons. Ghosting is instead kept down by
+        // the thin, non-chromatic lens below.
+        maskingQuality: MaskingQuality.high,
         magnification: 1.0,
         indicatorPinchStrength: 0,
         interactionBehavior: GlassInteractionBehavior.none,
