@@ -18,6 +18,18 @@ class DownloadTask {
   /// 用户自己 Z 站账号当日下载次数已用尽导致的失败。
   final bool quotaExceeded;
 
+  /// 该任务来自外部源解析出的直链（Anna / LibGen）或 LAN 传书，
+  /// 而不是 z 站账号下载：应用被杀后无法复用旧直链，只能提示用户
+  /// 回详情页重新获取链接（残片仍会被下一次下载续用）。
+  final bool external;
+
+  /// 应用被系统杀掉后从磁盘恢复出来的任务：字节还在，点重试即可
+  /// 续传，不是真正的下载失败。
+  final bool interrupted;
+
+  /// 该任务的 .part 路径（恢复时用来确认字节还在），不展示。
+  final String? partPath;
+
   bool get canRetry =>
       (status == DownloadStatus.error || status == DownloadStatus.cancelled) &&
       !needsFreshLink &&
@@ -37,6 +49,9 @@ class DownloadTask {
     this.needsFreshLink = false,
     this.missingFile = false,
     this.quotaExceeded = false,
+    this.external = false,
+    this.interrupted = false,
+    this.partPath,
   });
 
   DownloadTask copyWith({
@@ -51,6 +66,9 @@ class DownloadTask {
     bool? needsFreshLink,
     bool? missingFile,
     bool? quotaExceeded,
+    bool? external,
+    bool? interrupted,
+    String? partPath,
   }) {
     return DownloadTask(
       id: id ?? this.id,
@@ -64,6 +82,9 @@ class DownloadTask {
       needsFreshLink: needsFreshLink ?? this.needsFreshLink,
       missingFile: missingFile ?? this.missingFile,
       quotaExceeded: quotaExceeded ?? this.quotaExceeded,
+      external: external ?? this.external,
+      interrupted: interrupted ?? this.interrupted,
+      partPath: partPath ?? this.partPath,
     );
   }
 }

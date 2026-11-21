@@ -36,6 +36,7 @@ mixin _DownloadEngineMixin on _DownloadPathsMixin {
         book: book,
         status: DownloadStatus.pending,
         needsFreshLink: presetUrl != null,
+        external: presetUrl != null,
       ),
     );
 
@@ -52,6 +53,9 @@ mixin _DownloadEngineMixin on _DownloadPathsMixin {
       if (cancelToken.isCancelled) return;
 
       temporaryPath = '$finalPath.part';
+      // Remember where the bytes live so a restart can claim the partial
+      // file (the persisted task record carries this path).
+      _updateTask(id, (t) => t.copyWith(partPath: temporaryPath));
 
       // Update to downloading
       _updateTask(
@@ -68,9 +72,7 @@ mixin _DownloadEngineMixin on _DownloadPathsMixin {
       // the real file. Any failure here keeps the staging flow
       // (pendingWriter stays null).
       if (Platform.isAndroid && !alreadyExists) {
-        pendingWriter = await PendingUriWriter.resume(
-          savePath: temporaryPath,
-        );
+        pendingWriter = await PendingUriWriter.resume(savePath: temporaryPath);
         if (pendingWriter != null &&
             !await MediaStoreFiles.exists(pendingWriter.uri)) {
           // The pending entry vanished (user deleted it in Files);

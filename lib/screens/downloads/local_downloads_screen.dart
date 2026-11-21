@@ -275,6 +275,8 @@ class _DownloadItem extends ConsumerWidget {
                     ? l.downloadQuotaExceeded
                     : task.needsFreshLink
                     ? l.downloadFreshLinkRequired
+                    : task.interrupted
+                    ? l.downloadInterrupted
                     : task.error ?? l.downloadFailed,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,

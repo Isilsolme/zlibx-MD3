@@ -3,12 +3,14 @@
 // method clusters in the part files below. Dart cannot split one class
 // body across parts, so each part declares a private mixin applied to
 // DownloadNotifier; the public API stays on the notifier itself.
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:olib_api_plugin/olib_api_plugin.dart';
+import '../services/hive_service.dart';
 import '../services/http_client.dart';
 import '../services/media_store.dart';
 import '../services/pending_uri_writer.dart';
@@ -52,6 +54,40 @@ abstract class _DownloadNotifierBase extends Notifier<List<DownloadTask>> {
   // it today; kept for the startup-history signal).
   late Future<void> ready;
 
+  /// In-flight tasks, persisted to Hive so a process kill can be recovered
+  /// on the next launch. Completed tasks are excluded (history owns them).
+  static const String _activeTasksKey = 'download_tasks';
+  DateTime? _lastPersistAt;
+
+  /// Persist at most once a second: progress ticks are already throttled,
+  /// but a long download still produces hundreds of them and each write
+  /// serializes the whole task list.
+  void _persistSoon() {
+    final now = DateTime.now();
+    final last = _lastPersistAt;
+    if (last != null && now.difference(last).inMilliseconds < 1000) return;
+    _lastPersistAt = now;
+    unawaited(_persistActiveTasks());
+  }
+
+  Future<void> _persistActiveTasks() async {
+    try {
+      final payload = <String, dynamic>{
+        for (final task in state)
+          if (task.status != DownloadStatus.completed && task.partPath != null)
+            task.id: <String, dynamic>{
+              'book': task.book.toJson(),
+              'partPath': task.partPath,
+              'progress': task.progress,
+              'external': task.external,
+            },
+      };
+      await HiveService.settingsBox.put(_activeTasksKey, jsonEncode(payload));
+    } catch (error) {
+      logIgnored('download_tasks_persist', error);
+    }
+  }
+
   /// Cancel a download
   void cancelDownload(String id) {
     final token = _cancelTokens[id];
@@ -93,6 +129,71 @@ abstract class _DownloadNotifierBase extends Notifier<List<DownloadTask>> {
     // Remove from state
     state = state.where((t) => t.id != id).toList();
     _clearProgressThrottle(id);
+    _lastPersistAt = null;
+    _persistSoon();
+  }
+
+  /// Rebuilds tasks whose bytes survived a process kill. A record is only
+  /// resurrected when its .part file (or a MediaStore pending sidecar)
+  /// still exists; otherwise it is dropped. External-source tasks cannot
+  /// reuse their old direct link and are marked needsFreshLink — the
+  /// bytes still resume when the user downloads the book again.
+  Future<void> _restoreInterruptedTasks() async {
+    try {
+      final raw = HiveService.settingsBox.get(_activeTasksKey);
+      if (raw is! String || raw.isEmpty) return;
+      Object? decoded;
+      try {
+        decoded = jsonDecode(raw);
+      } catch (_) {
+        await HiveService.settingsBox.delete(_activeTasksKey);
+        return;
+      }
+      if (decoded is! Map) return;
+
+      final restored = <DownloadTask>[];
+      for (final value in decoded.values) {
+        if (value is! Map) continue;
+        final bookJson = value['book'];
+        final partPath = value['partPath'];
+        if (bookJson is! Map || partPath is! String || partPath.isEmpty) {
+          continue;
+        }
+        final hasBytes =
+            await File(partPath).exists() ||
+            await File(PendingUriWriter.statePathFor(partPath)).exists();
+        if (!hasBytes) continue;
+        try {
+          final book = Book.fromJson(Map<String, dynamic>.from(bookJson));
+          final external = value['external'] == true;
+          restored.add(
+            DownloadTask(
+              id: book.id.toString(),
+              book: book,
+              progress: (value['progress'] as num?)?.toDouble() ?? 0,
+              status: DownloadStatus.error,
+              interrupted: true,
+              external: external,
+              needsFreshLink: external,
+              partPath: partPath,
+            ),
+          );
+        } catch (error) {
+          logIgnored('download_task_restore', error);
+        }
+      }
+      if (restored.isEmpty) {
+        await HiveService.settingsBox.delete(_activeTasksKey);
+        return;
+      }
+      final existing = state.map((t) => t.id).toSet();
+      final fresh = restored.where((t) => !existing.contains(t.id)).toList();
+      if (fresh.isNotEmpty) state = [...state, ...fresh];
+      _lastPersistAt = null;
+      await _persistActiveTasks();
+    } catch (error) {
+      logIgnored('download_tasks_restore', error);
+    }
   }
 
   void _updateOrAddTask(DownloadTask task) {
@@ -101,6 +202,7 @@ abstract class _DownloadNotifierBase extends Notifier<List<DownloadTask>> {
     } else {
       state = [...state, task];
     }
+    _persistSoon();
   }
 
   /// Publishes one progress tick, throttled: a tick below 1.0 is only
@@ -157,6 +259,7 @@ abstract class _DownloadNotifierBase extends Notifier<List<DownloadTask>> {
       }
       return t;
     }).toList();
+    _persistSoon();
   }
 }
 
@@ -165,29 +268,29 @@ class DownloadNotifier extends _DownloadNotifierBase
   @override
   List<DownloadTask> build() {
     // Load persisted download history on initialization
-    ready = _loadDownloadHistory();
+    ready = _loadDownloadHistory().then((_) => _restoreInterruptedTasks());
     return [];
   }
 }
 
-final downloadProvider =
-    NotifierProvider<DownloadNotifier, List<DownloadTask>>(
-      DownloadNotifier.new,
-    );
+final downloadProvider = NotifierProvider<DownloadNotifier, List<DownloadTask>>(
+  DownloadNotifier.new,
+);
 
 /// One download task by id. Watching this instead of [downloadProvider]
 /// rebuilds a widget only when ITS task changes: [_updateTask] keeps the
 /// identity of every untouched task, so `select` sees no change for them.
 /// Use it in per-book widgets (action bars, list tiles) so one progress
 /// tick no longer rebuilds every listener of the whole list.
-final downloadTaskProvider =
-    Provider.autoDispose.family<DownloadTask?, String>((ref, id) {
-  return ref.watch(
-    downloadProvider.select((tasks) {
-      for (final t in tasks) {
-        if (t.id == id) return t;
-      }
-      return null;
-    }),
-  );
-});
+final downloadTaskProvider = Provider.autoDispose.family<DownloadTask?, String>(
+  (ref, id) {
+    return ref.watch(
+      downloadProvider.select((tasks) {
+        for (final t in tasks) {
+          if (t.id == id) return t;
+        }
+        return null;
+      }),
+    );
+  },
+);
