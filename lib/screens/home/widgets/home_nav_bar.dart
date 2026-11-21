@@ -51,22 +51,30 @@ class HomeNavBar extends ConsumerWidget {
         ],
         selectedIndex: selectedIndex,
         onTabSelected: onDestinationSelected,
-        quality: GlassQuality.standard,
-        backgroundQuality: GlassQuality.standard,
-        // One pass, but keep the tint to a translucent white so the bar
-        // reads as glass instead of a Material surface.
+        // Premium is the shader path: a real multi-tap backdrop blur.
+        // Standard is the lightweight approximation, which on large blur
+        // radii reads as blocky bands (the "mosaic" look) because it blurs
+        // a downsampled backdrop. The gate is Android 13+, and premium
+        // falls back to the lightweight path by itself if Impeller is
+        // unavailable.
+        quality: GlassQuality.premium,
+        backgroundQuality: GlassQuality.premium,
+        // Keep the tint translucent so the bar reads as glass instead of a
+        // Material surface; a lower blur sigma plus a little frost hides
+        // the backdrop's high-contrast edges without banding.
         settings: LiquidGlassSettings(
           glassColor: const Color.fromARGB(8, 255, 255, 255),
-          blur: 14,
-          thickness: 24,
+          blur: 9,
+          thickness: 18,
+          frost: 0.12,
           lightIntensity: 0.35,
-          saturation: 1.3,
+          saturation: 1.2,
           shadowElevation: 0.6,
         ),
         indicatorSettings: const LiquidGlassSettings(
           glassColor: Color.fromARGB(0, 255, 255, 255),
-          blur: 6,
-          thickness: 18,
+          blur: 5,
+          thickness: 14,
           lightIntensity: 0.4,
         ),
         indicatorColor: Colors.white.withValues(alpha: isDark ? 0.10 : 0.18),
