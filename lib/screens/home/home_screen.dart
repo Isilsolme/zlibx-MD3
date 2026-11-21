@@ -28,6 +28,11 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _selectedIndex = 0;
+
+  /// Target of a programmatic page animation. PageView reports every page
+  /// it crosses, so animating 0 → 3 fires onPageChanged for 1 and 2 as
+  /// well; those must not drag the bar backwards through the middle tabs.
+  int? _pageAnimationTarget;
   final _homeTabKey = GlobalKey<HomeTabState>();
   final _pageController = PageController();
 
@@ -75,6 +80,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: PageView.builder(
         controller: _pageController,
         onPageChanged: (index) {
+          final target = _pageAnimationTarget;
+          if (target != null && index != target) {
+            // Intermediate page of a multi-page tap animation.
+            return;
+          }
+          if (target != null) _pageAnimationTarget = null;
           // Switching tabs resets the nav to visible: a home tab
           // scrolled down must not leave the bar hidden on Settings.
           if (ref.read(navBarVisibleProvider) != true) {
@@ -198,10 +209,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (_selectedIndex != index) {
       setState(() => _selectedIndex = index);
     }
-    _pageController.animateToPage(
-      index,
-      duration: AppMotion.slow,
-      curve: Curves.easeInOut,
-    );
+    _pageAnimationTarget = index;
+    _pageController
+        .animateToPage(index, duration: AppMotion.slow, curve: Curves.easeInOut)
+        .whenComplete(() {
+          if (mounted && _pageAnimationTarget == index) {
+            _pageAnimationTarget = null;
+          }
+        });
   }
 }
