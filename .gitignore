@@ -104,3 +104,4 @@ secrets/
 
 #test scripts
 scripts/
+android/.kotlin/
