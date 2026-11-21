@@ -1,13 +1,20 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:olib_api_plugin/olib_api_plugin.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../l10n/generated/app_localizations.dart';
 import '../../models/unified_shelf_item.dart';
 import '../../providers/books_provider.dart';
+import '../../providers/favorites_transfer_provider.dart';
+import '../../services/favorites_transfer.dart';
+import '../../utils/diagnostics.dart';
 import '../../providers/download_provider.dart';
 import '../../providers/shelf_categories_provider.dart';
 import '../../providers/shelf_provider.dart';
@@ -20,7 +27,10 @@ import 'widgets/shelf_chip.dart';
 import '../../widgets/loading_widget.dart';
 
 import '../../utils/app_snack.dart';
+
 enum _ShelfSort { defaultOrder, title, author }
+
+enum _FavoritesMenuAction { export, import }
 
 class FavoritesScreen extends ConsumerStatefulWidget {
   const FavoritesScreen({super.key});
@@ -68,8 +78,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
     // downloadTaskProvider for its own book id, so one progress tick
     // rebuilds only that tile instead of the whole shelf.
     final categoryNameById = <String, String>{
-      for (final category in categories.categories)
-        category.id: category.name,
+      for (final category in categories.categories) category.id: category.name,
     };
     // Only the select-mode app bar needs the visible library ids.
     final selectedVisible = _isSelectMode
@@ -85,9 +94,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
           ? LoadingWidget.page(message: l.loadingFavorites)
           : RefreshIndicator(
               onRefresh: () async {
-                await ref
-                    .read(savedBooksProvider.notifier)
-                    .loadSavedBooks();
+                await ref.read(savedBooksProvider.notifier).loadSavedBooks();
               },
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -170,6 +177,128 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
     return library.hasError;
   }
 
+  /// Writes the current favorites (the server's saved-books list, which
+  /// is what "My Library" shows) to a JSON file and hands it to the share
+  /// sheet. Metadata is included for the user's own record; import only
+  /// needs the ids.
+  Future<void> _exportFavorites() async {
+    final l = AppLocalizations.of(context)!;
+    try {
+      var books = ref.read(savedBooksProvider).valueOrNull;
+      if (books == null || books.isEmpty) {
+        await ref.read(savedBooksProvider.notifier).loadSavedBooks();
+        books = ref.read(savedBooksProvider).valueOrNull;
+      }
+      if (!mounted) return;
+      if (books == null || books.isEmpty) {
+        showAppSnack(context, l.favoritesExportEmpty);
+        return;
+      }
+      final now = DateTime.now();
+      final stamp =
+          '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/zlibx-favorites-$stamp.json');
+      await file.writeAsString(encodeFavoritesExport(books));
+      if (!mounted) return;
+      await SharePlus.instance.share(
+        ShareParams(files: [XFile(file.path)], subject: l.favoritesExport),
+      );
+    } catch (error) {
+      logIgnored('favorites_export', error);
+      if (mounted) showAppSnack(context, l.favoritesExportFailed, error: true);
+    }
+  }
+
+  /// Picks a previously exported JSON file and re-adds every book to the
+  /// signed-in account, four requests at a time, with a progress dialog.
+  Future<void> _importFavorites() async {
+    final l = AppLocalizations.of(context)!;
+    try {
+      final pickedFile = await FilePicker.pickFile(
+        dialogTitle: l.favoritesImport,
+        type: FileType.custom,
+        allowedExtensions: const ['json'],
+      );
+      if (pickedFile == null) return;
+      // XFile reads a content:// URI on Android and a plain path on
+      // desktop, so the picker's own file object is enough.
+      final source = await pickedFile.xFile.readAsString();
+      final books = decodeFavoritesExport(source);
+      if (!mounted) return;
+      if (books.isEmpty) {
+        showAppSnack(context, l.favoritesExportEmpty);
+        return;
+      }
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(l.favoritesImport),
+          content: Text(l.favoritesImportConfirm(books.length)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(l.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(l.confirmOk),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+
+      unawaited(ref.read(favoritesImportProvider.notifier).run(books));
+      var closing = false;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => Consumer(
+          builder: (context, ref, _) {
+            final progress = ref.watch(favoritesImportProvider);
+            if (progress.finished && !closing) {
+              closing = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+              });
+            }
+            return AlertDialog(
+              title: Text(l.favoritesImport),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  LinearProgressIndicator(
+                    value: progress.total == 0
+                        ? null
+                        : progress.done / progress.total,
+                  ),
+                  const SizedBox(height: 12),
+                  Text('${progress.done}/${progress.total}'),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+      if (!mounted) return;
+      await ref.read(savedBooksProvider.notifier).loadSavedBooks();
+      if (!mounted) return;
+      final result = ref.read(favoritesImportProvider);
+      showAppSnack(
+        context,
+        l.favoritesImportDone(result.imported, result.failed),
+      );
+    } on FormatException {
+      if (mounted) {
+        showAppSnack(context, l.favoritesImportInvalid, error: true);
+      }
+    } catch (error) {
+      logIgnored('favorites_import', error);
+      if (mounted) showAppSnack(context, l.favoritesImportFailed, error: true);
+    }
+  }
+
   Widget _appBar(AppLocalizations l, Set<int> visibleIds) {
     if (_isSelectMode) {
       return SliverAppBar(
@@ -200,15 +329,45 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
       floating: true,
       title: Text(l.shelfTitle),
       actions: [
+        PopupMenuButton<_FavoritesMenuAction>(
+          tooltip: l.more,
+          icon: const Icon(Icons.more_vert),
+          onSelected: (action) {
+            switch (action) {
+              case _FavoritesMenuAction.export:
+                unawaited(_exportFavorites());
+              case _FavoritesMenuAction.import:
+                unawaited(_importFavorites());
+            }
+          },
+          itemBuilder: (context) => <PopupMenuEntry<_FavoritesMenuAction>>[
+            PopupMenuItem<_FavoritesMenuAction>(
+              value: _FavoritesMenuAction.export,
+              child: ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.upload_file_rounded, size: 20),
+                title: Text(l.favoritesExport),
+              ),
+            ),
+            PopupMenuItem<_FavoritesMenuAction>(
+              value: _FavoritesMenuAction.import,
+              child: ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.download_rounded, size: 20),
+                title: Text(l.favoritesImport),
+              ),
+            ),
+          ],
+        ),
         IconButton(
           tooltip: l.shelfManageCategories,
           icon: const Icon(Icons.label_outline_rounded),
           onPressed: _actions.manageCategories,
         ),
         IconButton(
-          tooltip: _isListView
-              ? l.shelfView
-              : l.listView,
+          tooltip: _isListView ? l.shelfView : l.listView,
           onPressed: () => setState(() => _isListView = !_isListView),
           icon: Icon(
             _isListView ? Icons.grid_view_rounded : Icons.view_list_rounded,
@@ -598,11 +757,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
               ),
               ListTile(
                 leading: const Icon(Icons.menu_book_rounded),
-                title: Text(
-                  local != null
-                      ? l.openFile
-                      : l.shelfViewDetails,
-                ),
+                title: Text(local != null ? l.openFile : l.shelfViewDetails),
                 onTap: () => Navigator.pop(sheetContext, 'quick'),
               ),
               ListTile(
@@ -638,9 +793,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(l.confirmRemoveTitle),
-        content: Text(
-          l.confirmRemoveMsg(ids.length),
-        ),
+        content: Text(l.confirmRemoveMsg(ids.length)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),

@@ -220,6 +220,7 @@
   "downloadFailed": "下载失败",
   "downloadFileMissing": "本地文件已不存在，可移除记录后重新下载。",
   "downloadFreshLinkRequired": "下载链接已失效，请返回原书页重新获取。",
+  "downloadInterrupted": "应用被关闭导致中断，点击重试可续传。",
   "downloadHistory": "下载历史（云端）",
   "downloadPreparing": "准备下载",
   "downloadQuotaDesc": "当前 Z-Library 账号今天的下载次数已用完，明天会自动恢复。也可以在设置中切换其他账号继续下载。",
@@ -244,6 +245,31 @@
   "favoriteFailed": "收藏更新失败，请稍后重试。",
   "favoriteRemoved": "已取消收藏",
   "favorites": "收藏",
+  "favoritesExport": "导出收藏",
+  "favoritesExportEmpty": "没有可导出的收藏",
+  "favoritesExportFailed": "导出收藏失败",
+  "favoritesImport": "导入收藏",
+  "favoritesImportConfirm": "将 {count} 本收藏导入当前账号？",
+  "@favoritesImportConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "favoritesImportDone": "导入完成：成功 {ok} 本，失败 {failed} 本",
+  "@favoritesImportDone": {
+    "placeholders": {
+      "ok": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "favoritesImportInvalid": "该文件不是收藏导出文件",
+  "favoritesImportFailed": "导入收藏失败",
   "fileDetails": "文件详情",
   "fileExistsDesc": "这本书已经下载过了。\n\n您可以打开现有文件或重新下载。",
   "fileExistsTitle": "文件已存在",

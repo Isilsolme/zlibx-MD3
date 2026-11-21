@@ -220,6 +220,7 @@
   "downloadFailed": "ダウンロードに失敗しました",
   "downloadFileMissing": "ローカルファイルが見つかりません。記録を削除して再度ダウンロードしてください。",
   "downloadFreshLinkRequired": "このリンクは期限切れです。本のページに戻って新しいリンクを取得してください。",
+  "downloadInterrupted": "アプリ終了で中断しました。「再試行」で続きから再開できます。",
   "downloadHistory": "ダウンロード履歴（クラウド）",
   "downloadPreparing": "ダウンロードを準備中",
   "downloadQuotaDesc": "この Z-Library アカウントは本日のダウンロード回数を使い切りました。明日リセットされます。設定で別のアカウントに切り替えることもできます。",
@@ -244,6 +245,31 @@
   "favoriteFailed": "お気に入りを更新できませんでした。もう一度お試しください。",
   "favoriteRemoved": "お気に入りから削除しました",
   "favorites": "お気に入り",
+  "favoritesExport": "お気に入りをエクスポート",
+  "favoritesExportEmpty": "エクスポートできるお気に入りがありません",
+  "favoritesExportFailed": "お気に入りのエクスポートに失敗しました",
+  "favoritesImport": "お気に入りをインポート",
+  "favoritesImportConfirm": "{count} 件のお気に入りをこのアカウントにインポートしますか？",
+  "@favoritesImportConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "favoritesImportDone": "インポート完了：成功 {ok} 件、失敗 {failed} 件",
+  "@favoritesImportDone": {
+    "placeholders": {
+      "ok": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "favoritesImportInvalid": "このファイルはお気に入りのエクスポートではありません",
+  "favoritesImportFailed": "お気に入りのインポートに失敗しました",
   "fileDetails": "ファイルの詳細",
   "fileExistsDesc": "この本はすでにダウンロード済みです。\n\n既存のファイルを開くか、再ダウンロードできます。",
   "fileExistsTitle": "ファイルは既に存在します",

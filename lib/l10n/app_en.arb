@@ -220,6 +220,7 @@
   "downloadFailed": "Download failed",
   "downloadFileMissing": "The local file is missing. Remove this record and download it again.",
   "downloadFreshLinkRequired": "This link expired. Return to the book page for a new link.",
+  "downloadInterrupted": "Interrupted when the app was closed. Retry to resume.",
   "downloadHistory": "Download History (Cloud)",
   "downloadPreparing": "Preparing download",
   "downloadQuotaDesc": "This Z-Library account has used all of today's downloads. They reset tomorrow, or you can switch to another account in Settings.",
@@ -244,6 +245,31 @@
   "favoriteFailed": "Could not update favorites. Please try again.",
   "favoriteRemoved": "Removed from Favorites",
   "favorites": "Favorites",
+  "favoritesExport": "Export favorites",
+  "favoritesExportEmpty": "No favorites to export",
+  "favoritesExportFailed": "Could not export favorites",
+  "favoritesImport": "Import favorites",
+  "favoritesImportConfirm": "Import {count} favorites into this account?",
+  "@favoritesImportConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "favoritesImportDone": "Imported {ok}, failed {failed}",
+  "@favoritesImportDone": {
+    "placeholders": {
+      "ok": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "favoritesImportInvalid": "That file is not a favorites export",
+  "favoritesImportFailed": "Could not import favorites",
   "fileDetails": "File Details",
   "fileExistsDesc": "This book has already been downloaded.\n\nYou can open the existing file or download again.",
   "fileExistsTitle": "File Already Exists",

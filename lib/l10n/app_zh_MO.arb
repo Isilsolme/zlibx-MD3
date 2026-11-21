@@ -220,6 +220,7 @@
   "downloadFailed": "下載失敗",
   "downloadFileMissing": "本機檔案已不存在，可移除紀錄後重新下載。",
   "downloadFreshLinkRequired": "下載連結已失效，請返回原書頁重新取得。",
+  "downloadInterrupted": "應用程式被關閉導致中斷，點擊重試可續傳。",
   "downloadHistory": "下載紀錄（雲端）",
   "downloadPreparing": "準備下載",
   "downloadQuotaDesc": "目前 Z-Library 帳號今日的下載次數已用完，明天會自動恢復。也可以在設定中切換其他帳號繼續下載。",
@@ -244,6 +245,31 @@
   "favoriteFailed": "收藏更新失敗，請稍後再試。",
   "favoriteRemoved": "已取消收藏",
   "favorites": "收藏",
+  "favoritesExport": "匯出收藏",
+  "favoritesExportEmpty": "沒有可匯出的收藏",
+  "favoritesExportFailed": "匯出收藏失敗",
+  "favoritesImport": "匯入收藏",
+  "favoritesImportConfirm": "將 {count} 本收藏匯入目前帳號？",
+  "@favoritesImportConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "favoritesImportDone": "匯入完成：成功 {ok} 本，失敗 {failed} 本",
+  "@favoritesImportDone": {
+    "placeholders": {
+      "ok": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "favoritesImportInvalid": "該檔案不是收藏匯出檔",
+  "favoritesImportFailed": "匯入收藏失敗",
   "fileDetails": "檔案詳情",
   "fileExistsDesc": "這本書已經下載過了。\n\n您可以開啟現有檔案或重新下載。",
   "fileExistsTitle": "檔案已存在",

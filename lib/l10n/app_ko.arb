@@ -220,6 +220,7 @@
   "downloadFailed": "다운로드에 실패했습니다",
   "downloadFileMissing": "로컬 파일이 없습니다. 기록을 삭제하고 다시 다운로드해 주세요.",
   "downloadFreshLinkRequired": "이 링크가 만료되었습니다. 책 페이지로 돌아가 새 링크를 받으세요.",
+  "downloadInterrupted": "앱이 종료되어 중단되었습니다. 재시도하면 이어서 받습니다.",
   "downloadHistory": "다운로드 기록 (클라우드)",
   "downloadPreparing": "다운로드 준비 중",
   "downloadQuotaDesc": "이 Z-Library 계정의 오늘 다운로드 횟수를 모두 사용했습니다. 내일 초기화됩니다. 설정에서 다른 계정으로 전환할 수도 있습니다.",
@@ -244,6 +245,31 @@
   "favoriteFailed": "즐겨찾기를 업데이트할 수 없습니다. 다시 시도해 주세요.",
   "favoriteRemoved": "즐겨찾기에서 삭제했습니다",
   "favorites": "즐겨찾기",
+  "favoritesExport": "즐겨찾기 내보내기",
+  "favoritesExportEmpty": "내보낼 즐겨찾기가 없습니다",
+  "favoritesExportFailed": "즐겨찾기를 내보내지 못했습니다",
+  "favoritesImport": "즐겨찾기 가져오기",
+  "favoritesImportConfirm": "이 계정으로 즐겨찾기 {count}개를 가져올까요?",
+  "@favoritesImportConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "favoritesImportDone": "가져오기 완료: 성공 {ok}개, 실패 {failed}개",
+  "@favoritesImportDone": {
+    "placeholders": {
+      "ok": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "favoritesImportInvalid": "이 파일은 즐겨찾기 내보내기 파일이 아닙니다",
+  "favoritesImportFailed": "즐겨찾기를 가져오지 못했습니다",
   "fileDetails": "파일 상세 정보",
   "fileExistsDesc": "이 책은 이미 다운로드되었습니다.\n\n기존 파일을 열거나 다시 다운로드할 수 있습니다.",
   "fileExistsTitle": "파일이 이미 있습니다",
