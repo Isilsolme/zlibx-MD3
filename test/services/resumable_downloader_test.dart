@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zlibx/services/resumable_downloader.dart';
@@ -72,6 +73,45 @@ void main() {
     await ResumableDownloader.download(dioFor(o), 'https://x/f', path);
     expect(await File(path).readAsBytes(), book);
     expect(File(ResumableDownloader.metaPathFor(path)).existsSync(), isFalse);
+  });
+
+  test('a matching md5 accepts the file', () async {
+    final o = _Origin(book);
+    await ResumableDownloader.download(
+      dioFor(o),
+      'https://x/f',
+      path,
+      expectedMd5: md5.convert(book).toString(),
+    );
+    expect(await File(path).readAsBytes(), book);
+    expect(File(ResumableDownloader.metaPathFor(path)).existsSync(), isFalse);
+  });
+
+  test('a mismatched md5 fails and removes the downloaded bytes', () async {
+    final o = _Origin(book);
+    await expectLater(
+      ResumableDownloader.download(
+        dioFor(o),
+        'https://x/f',
+        path,
+        expectedMd5: md5.convert(utf8.encode('another file')).toString(),
+      ),
+      throwsA(isA<DownloadChecksumException>()),
+    );
+    expect(File(path).existsSync(), isFalse);
+    expect(File(ResumableDownloader.metaPathFor(path)).existsSync(), isFalse);
+  });
+
+  test('the expected md5 is compared case-insensitively', () async {
+    final o = _Origin(book);
+    final upper = md5.convert(book).toString().toUpperCase();
+    await ResumableDownloader.download(
+      dioFor(o),
+      'https://x/f',
+      path,
+      expectedMd5: upper,
+    );
+    expect(await File(path).readAsBytes(), book);
   });
 
   test('rejects an HTML page labelled text/html and writes nothing', () async {

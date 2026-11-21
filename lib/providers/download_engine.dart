@@ -92,11 +92,16 @@ mixin _DownloadEngineMixin on _DownloadPathsMixin {
         // 外部下载不带 presetHeaders，不存在 token 外泄问题。
         // receiveTimeout: null = 不限接收超时：大文件慢速网络不能被打断。
         final dio = createDio(receiveTimeout: null);
+        // Anna's Archive / LibGen put the file's md5 on the synthesized
+        // book's hash; verify it so a mirror answering the wrong file is
+        // reported instead of published. z-library and LAN books carry no
+        // md5-shaped hash and skip the check.
         await _downloadResumable(
           dio,
           presetUrl,
           temporaryPath,
           headers: presetHeaders,
+          expectedMd5: _expectedMd5Of(book),
           onProgress: (received, total) {
             // `total` can be 0 (empty body / CDN without length): only a
             // positive total yields a valid fraction — 0/0 would push a
@@ -236,7 +241,9 @@ mixin _DownloadEngineMixin on _DownloadPathsMixin {
       // from ResumableDownloader, DownloadHtmlException from the vendor
       // plugin): the destination is useless, never resume it. The
       // publish failure above already discarded before throwing.
-      if (e is DownloadContentException || e is DownloadHtmlException) {
+      if (e is DownloadContentException ||
+          e is DownloadHtmlException ||
+          e is DownloadChecksumException) {
         if (pendingWriter != null) {
           await pendingWriter.discard();
           pendingWriter = null;
@@ -277,6 +284,7 @@ mixin _DownloadEngineMixin on _DownloadPathsMixin {
     void Function(int received, int total)? onProgress,
     CancelToken? cancelToken,
     PendingDownloadWriter? pendingWriter,
+    String? expectedMd5,
   }) async {
     try {
       await ResumableDownloader.download(
@@ -287,7 +295,17 @@ mixin _DownloadEngineMixin on _DownloadPathsMixin {
         onProgress: onProgress,
         cancelToken: cancelToken,
         pendingWriter: pendingWriter,
+        expectedMd5: expectedMd5,
       );
+    } on DownloadChecksumException {
+      // The mirror served a different file: the bytes are useless and a
+      // retry must not resume into them.
+      if (pendingWriter != null) {
+        await pendingWriter.discard();
+      } else {
+        await _deletePartial(savePath);
+      }
+      rethrow;
     } on DownloadContentException {
       // Not a book: the partial (if any) is useless, never resume it.
       if (pendingWriter != null) {
@@ -297,6 +315,16 @@ mixin _DownloadEngineMixin on _DownloadPathsMixin {
       }
       rethrow;
     }
+  }
+
+  /// The source's md5 when the book carries one (Anna/LibGen set it on
+  /// `Book.hash`); null for z-library / LAN books.
+  static String? _expectedMd5Of(Book book) {
+    final hash = book.hash;
+    if (hash == null || !RegExp(r'^[0-9a-fA-F]{32}$').hasMatch(hash)) {
+      return null;
+    }
+    return hash.toLowerCase();
   }
 
   Future<void> _deletePartial(String partPath) async {

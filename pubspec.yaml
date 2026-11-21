@@ -49,6 +49,9 @@ dependencies:
   
   # HTTP & Network
   dio: ^5.4.3+1
+  # Streaming MD5 for the external-source download check (Anna / LibGen
+  # advertise the file's md5 on the search row).
+  crypto: ^3.0.6
   # Imported directly by lib/services/libgen_service.dart and
   # lib/services/annas_archieve.dart (used to be transitive-only).
   meta: ^1.18.0

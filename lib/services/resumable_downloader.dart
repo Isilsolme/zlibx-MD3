@@ -19,6 +19,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:olib_api_plugin/olib_api_plugin.dart';
 
@@ -29,6 +30,29 @@ class DownloadContentException implements Exception {
   const DownloadContentException(this.message);
   @override
   String toString() => message;
+}
+
+/// The downloaded bytes do not match the MD5 the source advertised
+/// (external mirrors sometimes answer a different file). The destination
+/// is never published.
+class DownloadChecksumException implements Exception {
+  final String expected;
+  final String actual;
+  const DownloadChecksumException(this.expected, this.actual);
+  @override
+  String toString() =>
+      'download checksum mismatch: expected $expected, got $actual';
+}
+
+/// Collects the single digest produced by [Hash.startChunkedConversion].
+class _Md5Sink implements Sink<Digest> {
+  Digest? value;
+
+  @override
+  void add(Digest data) => value = data;
+
+  @override
+  void close() {}
 }
 
 /// The stream ended before the advertised length. The partial file is
@@ -78,6 +102,7 @@ class ResumableDownloader {
     void Function(int received, int total)? onProgress,
     CancelToken? cancelToken,
     PendingDownloadWriter? pendingWriter,
+    String? expectedMd5,
   }) async {
     // At most one forced restart (after a 416): bounded, never recursive.
     for (var attempt = 0; attempt < 2; attempt++) {
@@ -89,6 +114,7 @@ class ResumableDownloader {
         onProgress: onProgress,
         cancelToken: cancelToken,
         pendingWriter: pendingWriter,
+        expectedMd5: expectedMd5,
       );
       if (!restarted) return;
     }
@@ -106,6 +132,7 @@ class ResumableDownloader {
     void Function(int received, int total)? onProgress,
     CancelToken? cancelToken,
     PendingDownloadWriter? pendingWriter,
+    String? expectedMd5,
   }) async {
     final file = File(savePath);
     final meta = File(metaPathFor(savePath));
@@ -131,6 +158,15 @@ class ResumableDownloader {
         );
       }
     }
+
+    // MD5 of a fresh body is computed while streaming: the source's md5 is
+    // the only proof the mirror served the requested book, and a wrong file
+    // must never reach the path the user opens. Resumed downloads skip it
+    // (the existing prefix predates this call; the caller logs that).
+    final digestSink = (expectedMd5 != null && start == 0) ? _Md5Sink() : null;
+    final digestInput = digestSink == null
+        ? null
+        : md5.startChunkedConversion(digestSink);
 
     final reqHeaders = <String, String>{...?headers};
     if (start > 0) {
@@ -279,6 +315,7 @@ class ResumableDownloader {
         } else {
           await pendingWriter!.add(chunk);
         }
+        digestInput?.add(chunk);
         received += chunk.length;
         onProgress?.call(received, total);
       }
@@ -300,6 +337,24 @@ class ResumableDownloader {
 
     if (total > 0 && received < total) {
       throw DownloadTruncatedException(received, total);
+    }
+    if (digestInput != null) {
+      digestInput.close();
+      final actual = digestSink!.value?.toString().toLowerCase() ?? '';
+      if (actual != expectedMd5!.toLowerCase()) {
+        // The bytes are not the requested book: drop them so a retry from
+        // the UI cannot resume into a corrupt file. A MediaStore pending
+        // entry is discarded by the caller (it owns the writer).
+        if (pendingWriter == null) {
+          try {
+            if (await file.exists()) await file.delete();
+            if (await meta.exists()) await meta.delete();
+          } catch (_) {
+            // Best effort; the caller still reports the failure.
+          }
+        }
+        throw DownloadChecksumException(expectedMd5.toLowerCase(), actual);
+      }
     }
     if (await meta.exists()) await meta.delete();
     return false;
