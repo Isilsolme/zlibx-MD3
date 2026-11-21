@@ -95,7 +95,12 @@ class HomeNavBar extends ConsumerWidget {
         indicatorSettings: const LiquidGlassSettings(
           glassColor: Color.fromARGB(0, 255, 255, 255),
           blur: 16,
-          thickness: 4,
+          // The lens needs a real bevel to bend the icons underneath: at
+          // thickness 4 / n 1.05 the displacement is under a pixel, so the
+          // pill read as a flat mirror with a colour change. 18dp of bevel
+          // at n=1.12 gives ~17px of edge displacement while staying below
+          // the paraxial fold threshold (n≈1.125), so no mirrored copy.
+          thickness: 18,
           frost: 0,
           lightIntensity: 0.25,
           saturation: 1.05,
@@ -104,7 +109,7 @@ class HomeNavBar extends ConsumerWidget {
           rimShade: 0,
           glowIntensity: 0,
           fresnelStrength: 0.2,
-          refractiveIndex: 1.05,
+          refractiveIndex: 1.12,
           lensModel: GlassLensModel.paraxial,
         ),
         indicatorColor: Colors.white.withValues(alpha: isDark ? 0.10 : 0.18),
