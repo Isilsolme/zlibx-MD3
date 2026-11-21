@@ -51,31 +51,56 @@ class HomeNavBar extends ConsumerWidget {
         ],
         selectedIndex: selectedIndex,
         onTabSelected: onDestinationSelected,
-        // Premium is the shader path: a real multi-tap backdrop blur.
-        // Standard is the lightweight approximation, which on large blur
-        // radii reads as blocky bands (the "mosaic" look) because it blurs
-        // a downsampled backdrop. The gate is Android 13+, and premium
-        // falls back to the lightweight path by itself if Impeller is
-        // unavailable.
+        // Premium is the shader path (real Gaussian backdrop sampling);
+        // standard is the lightweight approximation that turns blocky on a
+        // large blur. The Android 13+ gate is the only downgrade — the
+        // package's adaptive quality scope is disabled in main().
         quality: GlassQuality.premium,
         backgroundQuality: GlassQuality.premium,
-        // Keep the tint translucent so the bar reads as glass instead of a
-        // Material surface; a lower blur sigma plus a little frost hides
-        // the backdrop's high-contrast edges without banding.
+        // No magic-lens masking, no magnification and no press glow: those
+        // draw the selected tab twice (the multi-layer icon ghosting) and
+        // add a bright highlight while dragging. NeriPlayer only bends the
+        // backdrop, which is what is left here: a heavy blur plus a subtle
+        // curved-lens rim, without chromatic fringes.
+        maskingQuality: MaskingQuality.off,
+        magnification: 1.0,
+        indicatorPinchStrength: 0,
+        interactionBehavior: GlassInteractionBehavior.none,
+        interactionGlowColor: Colors.transparent,
+        glowOpacity: 0,
         settings: LiquidGlassSettings(
-          glassColor: const Color.fromARGB(8, 255, 255, 255),
-          blur: 9,
-          thickness: 18,
-          frost: 0.12,
-          lightIntensity: 0.35,
-          saturation: 1.2,
+          glassColor: const Color.fromARGB(10, 255, 255, 255),
+          // High gaussian blur; the cost is kept down by removing the
+          // frost pass, rim light/shade, glow and chromatic aberration
+          // below, not by lowering the blur.
+          blur: 24,
+          thickness: 6,
+          frost: 0,
+          lightIntensity: 0.25,
+          saturation: 1.1,
+          chromaticAberration: 0,
+          rimLight: 0,
+          rimShade: 0,
+          glowIntensity: 0,
+          fresnelStrength: 0.2,
+          refractiveIndex: 1.06,
+          lensModel: GlassLensModel.paraxial,
           shadowElevation: 0.6,
         ),
         indicatorSettings: const LiquidGlassSettings(
           glassColor: Color.fromARGB(0, 255, 255, 255),
-          blur: 5,
-          thickness: 14,
-          lightIntensity: 0.4,
+          blur: 16,
+          thickness: 4,
+          frost: 0,
+          lightIntensity: 0.25,
+          saturation: 1.05,
+          chromaticAberration: 0,
+          rimLight: 0,
+          rimShade: 0,
+          glowIntensity: 0,
+          fresnelStrength: 0.2,
+          refractiveIndex: 1.05,
+          lensModel: GlassLensModel.paraxial,
         ),
         indicatorColor: Colors.white.withValues(alpha: isDark ? 0.10 : 0.18),
         barHeight: 64,
@@ -87,7 +112,6 @@ class HomeNavBar extends ConsumerWidget {
         unselectedIconColor: cs.onSurfaceVariant,
         selectedLabelColor: cs.primary,
         unselectedLabelColor: cs.onSurfaceVariant,
-        interactionGlowColor: cs.primary,
       );
     }
 

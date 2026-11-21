@@ -93,9 +93,12 @@ void main() async {
 
   Widget app = const MyApp();
   if (GlassSupport.enabled) {
+    // No adaptiveQuality: its root GlassAdaptiveScope benchmarks the device
+    // and silently caps quality (starting at standard), which is exactly the
+    // "fine at first, mosaic later" behaviour. The bar's own quality is
+    // fixed; the Android 13+ gate is the only downgrade.
     app = LiquidGlassWidgets.wrap(
       child: app,
-      adaptiveQuality: true,
       brightnessResolver: Theme.maybeBrightnessOf,
     );
   }
