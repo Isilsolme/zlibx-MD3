@@ -90,6 +90,10 @@ class BooklistDetailController
   // revalidation, this slice is replaced while page 2+ rows are kept.
   final Set<int> _firstPageIds = <int>{};
 
+  /// Card count of a full page (the first page's length). Used to decide
+  /// whether a page without a `pagination` block has a successor.
+  int? _pageSize;
+
   /// The three book structures are only ever mutated through the
   /// helpers below, so they cannot drift apart silently: [_bookIds]
   /// is exactly the id set of [_books], and [_firstPageIds] is the
@@ -382,8 +386,27 @@ class BooklistDetailController
     if (cachedPage != null) _merge(cachedPage);
     state = state.copyWith(isLoadingMore: true, books: List.of(_books));
     try {
+      // Page 2+ normally comes from the papi JSON endpoint. Some lines
+      // 404 that route; fall back to the server-rendered HTML page
+      // (`?page=N`) so a large booklist keeps loading instead of dying
+      // on page 2. Both routes carry the same cards.
+      var pageBooks = const <Book>[];
+      int? totalPages;
+      var fetched = false;
       final response = await _repository.fetchBooksPage(list.id, page: page);
       if (!_isCurrent(generation)) return;
+      if (response.success && response.data != null) {
+        pageBooks = response.data!.books;
+        totalPages = response.data!.totalPages;
+        fetched = true;
+      } else {
+        final html = await _repository.fetchBooksPageHtml(list, page: page);
+        if (!_isCurrent(generation)) return;
+        if (html.success && html.data != null) {
+          pageBooks = html.data!;
+          fetched = true;
+        }
+      }
       // Same invalidation check as _loadDetailPage: a load-more that
       // started before a remove must not merge the removed book back.
       // Clear the flag on the way out: unlike the generation return
@@ -400,32 +423,42 @@ class BooklistDetailController
         state = state.copyWith(isLoadingMore: false);
         return;
       }
-      final data = response.data;
-      if (response.success && data != null) {
-        _repository.storeBooksPage(
-          list.url,
-          page,
-          data.books,
-          accountId: accountId,
-          fetchedAt: fetchedAt,
-        );
-        // Merge by id: the cached page and the fresh page carry the
-        // same books — adding both would duplicate the rows.
-        _merge(data.books);
-        state = state.copyWith(
-          books: List.of(_books),
-          hasMore: page < data.totalPages,
-          nextPage: page + 1,
-          isLoadingMore: false,
-        );
-      } else {
+      if (!fetched) {
         // A failed later page must not silently end the list: a network
         // blip would look like "no more books" with no way back (and
         // setting `error` here would trip the loadMore guard above,
         // which blocks retries while an error is set). Keep hasMore so
         // the next scroll event re-enters loadMore and retries.
         state = state.copyWith(isLoadingMore: false);
+        return;
       }
+      _repository.storeBooksPage(
+        list.url,
+        page,
+        pageBooks,
+        accountId: accountId,
+        fetchedAt: fetchedAt,
+      );
+      // Merge by id: the cached page and the fresh page carry the
+      // same books — adding both would duplicate the rows.
+      _merge(pageBooks);
+      if (_pageSize == null && pageBooks.isNotEmpty) {
+        _pageSize = pageBooks.length;
+      }
+      // A known page count is authoritative. Without one (the JSON
+      // endpoint answered no `pagination`), arbitrate by page size: a
+      // full page may have a successor, a short or empty page is the
+      // end. Treating "unknown" as one page used to stop big lists after
+      // 20 books.
+      final pageSize = _pageSize ?? 0;
+      final fullPage =
+          pageBooks.isNotEmpty && (pageSize == 0 || pageBooks.length >= pageSize);
+      state = state.copyWith(
+        books: List.of(_books),
+        hasMore: totalPages != null ? page < totalPages : fullPage,
+        nextPage: page + 1,
+        isLoadingMore: false,
+      );
     } catch (e) {
       if (!_isCurrent(generation)) return;
       // Same as above: keep the list resumable instead of truncating it.
@@ -619,6 +652,7 @@ class BooklistDetailController
       _addBook(book, firstPage: true);
     }
     _merge(laterPages);
+    if (books.isNotEmpty) _pageSize ??= books.length;
     state = state.copyWith(
       books: List.of(_books),
       // Do not trust the list page's book count here — it is stale

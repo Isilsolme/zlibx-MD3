@@ -286,6 +286,49 @@ mixin ZLibraryBooklists on ZLibraryApiBase {
     return ApiResponse.ok(parseBooklistDetailBooks(html, baseUrl: _base));
   }
 
+  /// One server-rendered page (2 and up) of a booklist, from the detail
+  /// route with `?page=N`.
+  ///
+  /// Fallback for lines where the papi endpoint is missing/404s: the
+  /// HTML route still paginates. Page 1 is [getBooklistDetailBooks]; this
+  /// method never touches the page-1 HTML cache (the cache key is the
+  /// bare detail URL, so storing page N under it would corrupt page 1).
+  Future<ApiResponse<List<Book>>> getBooklistDetailBooksPage(
+    Booklist list, {
+    required int page,
+  }) async {
+    final path = Uri.tryParse(list.url)?.path ?? '';
+    if (path.isEmpty || page < 2) {
+      return ApiResponse.fail('booklist has no page url');
+    }
+    final raw = await _get(
+      path,
+      query: <String, dynamic>{'page': page},
+      extraHeaders: const {'Accept': 'text/html'},
+    );
+    final status = raw.status;
+    if (status == null || status < 200 || status >= 300) {
+      return ApiResponse.fail(
+        raw.error ?? 'booklist page failed (HTTP $status)',
+        statusCode: status,
+      );
+    }
+    final html = raw.body;
+    if (html == null || html.isEmpty) {
+      return ApiResponse.fail(
+        raw.error ?? 'booklist page failed',
+        statusCode: status,
+      );
+    }
+    if (ZLibraryApiBase._looksLikeChallengePage(html)) {
+      return ApiResponse.fail(
+        'HTTP $status: browser check page',
+        statusCode: status,
+      );
+    }
+    return ApiResponse.ok(parseBooklistDetailBooks(html, baseUrl: _base));
+  }
+
   /// Books on page 2 and up of one booklist. The site's own JSON API:
   /// `GET /papi/booklist/{id}/get-books/{page}` answers
   /// `{books: [{book: {...}}], pagination: {total_pages}}`; each inner
@@ -327,13 +370,18 @@ mixin ZLibraryBooklists on ZLibraryApiBase {
         .whereType<Map<String, dynamic>>()
         .map(Book.fromJson)
         .toList();
+    // No pagination block means the page count is UNKNOWN, not one page:
+    // some lines answer without it, and treating that as "1 page" used to
+    // stop a large booklist after its first page. The caller arbitrates
+    // by page size when this is null.
+    int? totalPages;
     final pagination = json['pagination'];
-    var totalPages = 1;
     if (pagination is Map<String, dynamic>) {
       final rawTotal = pagination['total_pages'];
-      totalPages = rawTotal is int
+      final parsed = rawTotal is int
           ? rawTotal
-          : int.tryParse(rawTotal.toString()) ?? 1;
+          : int.tryParse(rawTotal.toString());
+      if (parsed != null && parsed > 0) totalPages = parsed;
     }
     return ApiResponse.ok(
       BooklistBooksPage(books: books, totalPages: totalPages),

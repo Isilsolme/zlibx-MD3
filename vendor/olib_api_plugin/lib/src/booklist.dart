@@ -258,11 +258,16 @@ class BooklistsPage {
 
 /// Books inside one booklist, from
 /// `GET /papi/booklist/{id}/get-books/{page}`.
+///
+/// [totalPages] is null when the response carried no `pagination` block
+/// (some mirrors/lines omit it). Callers then arbitrate by page size: a
+/// full page may have a successor, a short or empty page is the end —
+/// otherwise a large booklist would stop after its first page.
 class BooklistBooksPage {
   final List<Book> books;
-  final int totalPages;
+  final int? totalPages;
 
-  const BooklistBooksPage({required this.books, this.totalPages = 1});
+  const BooklistBooksPage({required this.books, this.totalPages});
 }
 
 /// Parse a `/booklists` (or `/booklists/my`) list page (HTML) into a

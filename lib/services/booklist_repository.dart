@@ -155,6 +155,14 @@ class BooklistRepository {
   }) =>
       _api.getBooklistBooks(listId, page: page);
 
+  /// One server-rendered page (2 and up) of a booklist — the fallback
+  /// used when the JSON endpoint is missing on a line.
+  Future<ApiResponse<List<Book>>> fetchBooksPageHtml(
+    Booklist list, {
+    required int page,
+  }) =>
+      _api.getBooklistDetailBooksPage(list, page: page);
+
   /// One page of the signed-in user's own booklists.
   Future<ApiResponse<BooklistsPage>> searchMyBooklists({
     String query = '',
